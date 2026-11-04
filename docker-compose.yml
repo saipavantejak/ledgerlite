@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ledgerlite
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ledgerlite"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/ledgerlite
+      API_KEY: dev-key
+      CORS_ORIGIN: http://localhost:8080
+    ports: ["3000:3000"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_API_KEY: dev-key
+    ports: ["8080:80"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
